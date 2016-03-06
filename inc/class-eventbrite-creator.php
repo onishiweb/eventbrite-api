@@ -32,7 +32,12 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		// Add post meta actions
 		add_action( 'add_meta_boxes', array( $this, 'add_event_meta_boxes' ) );
-		add_action( 'save_post', array( $this, 'save_meta_data' ) );
+
+		add_action( 'admin_notices', array( $this, 'display_admin_notice' ) );
+
+		// Eventbrite create action
+	    add_action( 'admin_post_eventbrite_create_event', array( 'Eventbrite_Creator', 'do_event_create'), 1 );
+	    add_action( 'admin_post_eventbrite_update_event', array( 'Eventbrite_Creator', 'do_event_update'), 1 );
 	}
 
 	public function get_defaults() {
@@ -102,7 +107,6 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		} else {
 			eventbrite_venues()->setup_post_type($args['venues']);
 		}
-
 	}
 
 	/**
@@ -113,18 +117,26 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	 * @param array $params Parameters to be passed during the API call.
 	 * @return void
 	 */
-	public function do_event_create( $post_id, $params = array() ) {
+	public function do_event_create() {
+
+		$post_id = $_GET['post_id'];
+
+		$params = eventbrite_creator()->map_event_keys($post_id);
+
 		// Get the raw results.
-		$results = $this->request( 'create_event', $params, false, true );
+		$result = eventbrite_creator()->request( 'create_event', $params, false, true );
 
 		if( empty($result->errors) ) {
 			add_post_meta( $post_id, 'eventbrite_event_id', $result->id, true );
 			add_post_meta( $post_id, 'eventbrite_event_url', $result->url, true );
-
-			add_post_meta( $post_id, 'eventbrite_event_created', 'true', true );
 		} else {
 			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
 		}
+
+		$redirect_to = get_edit_post_link( $post_id, '' );
+
+		wp_safe_redirect( $redirect_to );
+		exit();
 	}
 
 	/**
@@ -135,17 +147,35 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	 * @param array $params Parameters to be passed during the API call.
 	 * @return void
 	 */
-	public function do_event_update( $post_id, $params = array() ) {
-		$event_id = get_post_meta( $post_id, 'eventbrite_event_id', true );
+	public function do_event_update() {
+		$post_id = $_GET['post_id'];
+		$event_id = $_GET['eventbrite_id'];
+
+		$params = eventbrite_creator()->map_event_keys($post_id);
 
 		// Get the raw results.
-		$results = $this->request( 'update_event', $params, $event_id, true );
+		$results = eventbrite_creator()->request( 'update_event', $params, $event_id, true );
 
 		if( empty($result->errors) ) {
-			add_post_meta( $post_id, 'eventbrite_event_updated', 'true', true );
+
 		} else {
 			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
 		}
+
+		$redirect_to = get_edit_post_link( $post_id, '' );
+
+		wp_safe_redirect( $redirect_to );
+		exit();
+	}
+
+	public function display_admin_notice() {
+
+		return;
+
+		$notice = 'Eventbrite event created';
+
+		// Output notice HTML.
+		printf( '<div id="message" class="updated"><p>%s</p></div>', $notice );
 	}
 
 	/**
@@ -154,11 +184,10 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	public function add_event_meta_boxes() {
 		add_meta_box (
 				'eventbrite_event_meta',
-				__('Event details', 'eventbrite-api'),
+				__('Eventbrite', 'eventbrite-api'),
 				array( $this, 'event_meta_fields' ),
-				$this->post_type,
-				'normal',
-				'high'
+				eventbrite_creator()->post_type,
+				'side'
 			);
 	}
 
@@ -172,99 +201,25 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		// Use nonce for verification
 		wp_nonce_field( plugin_basename( __FILE__ ), 'eventbrite_meta_noncename' );
 
-		$fields = $this->get_event_post_fields();
+		$submit_value = 'Create Eventbrite Event';
+		$action = 'eventbrite_create_event';
+		$evenbrite_id_data = '';
 
-		// TODO: Make a better way of doing this.
-		if( get_post_meta($post->ID, 'eventbrite_event_created', true) ) {
-			echo 'Event created<br>';
-		} elseif( get_post_meta($post->ID, 'eventbrite_event_error', true) ) {
-			echo 'Error creating event<br>';
-		} elseif( get_post_meta($post->ID, 'eventbrite_event_updated', true) ) {
-			echo 'Event updated<br>';
-		} else {
-			echo 'No request made';
+		if( $evenbrite_id = get_post_meta( $post->ID, 'eventbrite_event_id', true) ) {
+			$submit_value = 'Update Eventbrite Event';
+			$action = 'eventbrite_update_event';
 		}
 
-		foreach( $fields as $field => $settings ) {
-			$field_name = str_replace(['.'], '_', $field);
+		$url = add_query_arg( array(
+		    'action'        => $action,
+		    'post_id'       => $post->ID,
+		    'eventbrite_id' => get_post_meta( $post->ID, 'eventbrite_event_id', true),
+		), admin_url( 'admin-post.php' ) );
+		?>
 
-			$value = get_post_meta($post->ID, $field_name) ? get_post_meta($post->ID, $field_name, true) : '';
-			echo $this->build_field($field, $settings, $value);
-		}
+		<a href="<?php echo $url; ?>" class="button button-primary button-large"><?php echo $submit_value; ?></a>
 
-		delete_post_meta( $post->ID, 'eventbrite_event_created', 'true' );
-		delete_post_meta( $post->ID, 'eventbrite_event_error', '' );
-		delete_post_meta( $post->ID, 'eventbrite_event_updated', 'true' );
-	}
-
-	/**
-	 * [save_meta_data description]
-	 *
-	 * @param  integer $post_id ID of the post being updated
-	 * @return void
-	 */
-	public function save_meta_data( $post_id ) {
-
-		// verify if this is an auto save routine.
-		// If it is the post has not been updated, so we don’t want to do anything
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return $post_id;
-		}
-
-		// verify this came from the screen and with proper authorization,
-		// because save_post can be triggered at other times
-		if ( !isset( $_POST['eventbrite_meta_noncename'] ) || !wp_verify_nonce( $_POST['eventbrite_meta_noncename'], plugin_basename( __FILE__ ) ) ) {
-			return $post_id;
-		}
-
-		// Get the post type object.
-		global $post;
-		$post_type = get_post_type_object( $post->post_type );
-
-		// Check if the current user has permission to edit the post.
-		if ( ! current_user_can( $post_type->cap->edit_post, $post_id ) ) {
-			return $post_id;
-		}
-
-		$fields = $this->get_event_post_fields();
-		$meta = array();
-
-		// Get the posted data and pass it into an associative array for ease of entry
-		foreach( $fields as $field => $settings ) {
-			$field_name = str_replace(['.'], '_', $field);
-
-			$meta[$field_name] = ( isset( $_POST[$field_name] ) ? $_POST[$field_name] : '' );
-		}
-
-		$fields_updated = false;
-
-		// add/update record (both are taken care of by update_post_meta)
-		foreach( $meta as $key => $value ) {
-			// get current meta value
-			$current_value = get_post_meta( $post_id, $key, true);
-
-			if ( $value && '' == $current_value ) {
-				add_post_meta( $post_id, $key, $value, true );
-				$fields_updated = true;
-			} elseif ( $value && $value != $current_value ) {
-				update_post_meta( $post_id, $key, $value );
-				$fields_updated = true;
-			} elseif ( '' == $value && $current_value ) {
-				delete_post_meta( $post_id, $key, $current_value );
-				$fields_updated = true;
-			}
-		}
-
-		// TODO: Make a better way of doing this,
-		// needs to update when using ACF Fields and regular WP fields to.
-		if( $fields_updated ) {
-			if( get_post_meta( $post_id, 'eventbrite_event_id', true) ) {
-				$this->do_event_update( $post_id, $this->map_event_keys($post_id) );
-			} else {
-				// Create the event through the API
-				$this->do_event_create( $post_id, $this->map_event_keys($post_id) );
-			}
-		}
+		<?php
 	}
 
 	/**
@@ -293,7 +248,6 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 			'event.shareable' => array(),
 			'event.invite_only' => array(),
 			'event.password' => array(),
-			'event.capacity' => array(),
 			'event.show_remaining' => array(),
 		);
 
@@ -305,81 +259,6 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		return $params;
 	}
 
-	protected function build_field($field, $settings, $value) {
-
-		$field_name = str_replace(['.'], '_', $field);
-		$field_id = str_replace(['.', '_'], '-', $field);
-
-		echo '<div class="eventbrite-event-field">';
-
-		echo '<label class="eventbrite-event-label" for="' . $field_id . '">' . $settings['title'] . '</label>';
-
-		switch( $settings['type'] ) {
-			case 'textarea':
-				echo '<textarea class="eventbrite-event-textarea" name="'. $field_name . '" id="' . $field_id . '">' . $value . '</textarea>';
-				break;
-			default:
-				echo '<input type="' . $settings['type'] . '" class="eventbrite-event-input" name="'. $field_name . '" id="' . $field_id . '" value="' . $value . '">';
-				break;
-
-			// case 'select':
-			// 	// $options = $this->get_post_as_options($settings['values_arg']);
-
-			// 	// echo '<select name="'. $field_name . '" id="' . $field_id . '">';
-
-
-
-			// 	// echo '</select>';
-			// 	break;
-		}
-
-		echo '</div>';
-	}
-
-	protected function get_event_post_fields() {
-		$fields = array(
-			'description.html' => array(
-				'title' => 'Event description',
-				'type' => 'textarea',
-			),
-			'start.utc.date' => array(
-				'title' => 'Start date',
-				'type' => 'date',
-			),
-			'start.utc.time' => array(
-				'title' => 'Start time',
-				'type' => 'time',
-			),
-			'end.utc.date' => array(
-				'title' => 'End date',
-				'type' => 'date',
-			),
-			'end.utc.time' => array(
-				'title' => 'End time',
-				'type' => 'time',
-			),
-			'venue_id' => array(
-				'title' => 'Venue',
-				'type' => 'select',
-				'values' => 'post_type',
-				'values_arg' => 'eventbrite_venue',
-			),
-			'online_event' => array(
-				'title' => 'Online event only',
-				'type' => 'checkbox',
-			),
-			'listed' => array(
-				'title' => 'Publicly listed',
-				'type' => 'checkbox',
-			),
-			'capacity' => array(
-				'title' => 'Capacity',
-				'type' => 'number',
-			),
-		);
-
-		return $fields;
-	}
 
 	/**
 	 * Convert the post properties into properties used by the Eventbrite API.
@@ -392,34 +271,39 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	protected function map_event_keys( $post_id ) {
 		$event = array();
 
-		$event['event.name.html']        = get_the_title($post_id);
-		$event['event.description.html'] = get_post_meta($post_id, 'description_html', true);
-		// $event['event.organizer_id']     = get_post_meta($post_id, '', true);
-
-		$start_time = get_post_meta($post_id, 'start_utc_date', true) . ' ' . get_post_meta($post_id, 'start_utc_time', true);
-		$event['event.start.utc']        = gmdate('Y-m-d\TH:i:s\Z', strtotime($start_time));
-
+		$event['event.name.html']        = get_the_title( $post_id );
+		$event['event.description.html'] = get_field( 'event_description', $post_id );
+		$event['event.start.utc']        = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'event_start_time', $post_id) ) );
 		$event['event.start.timezone']   = 'Europe/London';
-
-		$end_time = get_post_meta($post_id, 'end_utc_date', true) . ' ' . get_post_meta($post_id, 'end_utc_time', true);
-		$event['event.end.utc']          = gmdate('Y-m-d\TH:i:s\Z', strtotime($end_time));
+		$event['event.end.utc']          = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'event_end_time', $post_id) ) );
 		$event['event.end.timezone']     = 'Europe/London';
-		$event['event.currency']         = 'GBP'; // get_post_meta($post_id, '', true);
-		$event['event.venue_id']         = '13696417'; // get_post_meta($post_id, '', true);
-		$event['event.online_event']     = false; // get_post_meta($post_id, '', true);
-		$event['event.listed']           = true; // get_post_meta($post_id, '', true);
+		$event['event.currency']         = 'GBP';
+		$event['event.online_event']     = false;
+		$event['event.listed']           = true;
+		$event['event.shareable']        = true;
+		$event['event.show_remaining']   = true;
+
+		$venue_id = get_field( 'event_venue', $post_id );
+		$event['event.venue_id']         = get_field( 'eventbrite_venue_id', $venue_id ); //'13696417';
+
+		// Fields not yet being used:
+		//
+		// $event['event.organizer_id']     = get_post_meta($post_id, '', true);
 		// $event['event.logo_id']          = get_post_meta($post_id, '', true);
 		// $event['event.category_id']      = get_post_meta($post_id, '', true);
 		// $event['event.format_id']        = get_post_meta($post_id, '', true);
-		$event['event.shareable']        = true; // get_post_meta($post_id, '', true);
 		// $event['event.invite_only']      = get_post_meta($post_id, '', true);
 		// $event['event.password']         = get_post_meta($post_id, '', true);
-		$event['event.capacity']         = get_post_meta($post_id, 'capacity', true);
-		$event['event.show_remaining']   = true;
+		// $start_time = get_post_meta($post_id, 'start_utc_date', true) . ' ' . get_post_meta($post_id, 'start_utc_time', true);
+		// $event['event.start.utc']        = gmdate('Y-m-d\TH:i:s\Z', strtotime($start_time));
+		// $end_time = get_post_meta($post_id, 'end_utc_date', true) . ' ' . get_post_meta($post_id, 'end_utc_time', true);
+		// $event['event.end.utc']          = gmdate('Y-m-d\TH:i:s\Z', strtotime($end_time));
 
 		return $event;
 	}
 }
+
+new Eventbrite_Creator;
 
 function eventbrite_creator() {
 	return Eventbrite_Creator::$instance;

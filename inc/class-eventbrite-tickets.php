@@ -190,8 +190,8 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 		$ticket['ticket_class.quantity_total']    = array(); // Get from event
 		$ticket['ticket_class.cost']              = 'GBP,' . $cost;
 		$ticket['ticket_class.include_fee']       = get_field( 'ticket_fee', $post_id);
-		$ticket['ticket_class.sales_start']       = gmdate('Y-m-d\TH:i:s\Z', get_field( 'ticket_start', $post_id));
-		$ticket['ticket_class.sales_end']         = gmdate('Y-m-d\TH:i:s\Z', get_field( 'ticket_end', $post_id));
+		$ticket['ticket_class.sales_start']       = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'ticket_start', $post_id) ) );
+		$ticket['ticket_class.sales_end']         = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'ticket_end', $post_id) ) );
 		$ticket['ticket_class.minimum_quantity']  = 1;
 		$ticket['ticket_class.maximum_quantity']  = get_field( 'ticket_max_purchase', $post_id);
 
