@@ -8,6 +8,7 @@ Version: 1.0.10
 Author: Automattic
 Author URI: http://automattic.com
 License: GPL v2 or newer <https://www.gnu.org/licenses/gpl.txt>
+Text Domain: eventbrite-api
 */
 
 /**
@@ -47,6 +48,7 @@ function eventbrite_api_init() {
 	// No point loading unless we have an active Eventbrite connection.
 	if ( Eventbrite_Requirements::has_active_connection() ) {
 		require_once( 'inc/class-eventbrite-manager.php' );
+		require_once( 'inc/class-eventbrite-creator.php' );
 		require_once( 'inc/class-eventbrite-query.php' );
 		require_once( 'inc/class-eventbrite-templates.php' );
 		require_once( 'inc/class-eventbrite-event.php' );

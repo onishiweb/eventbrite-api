@@ -61,12 +61,16 @@ class Eventbrite_API extends Keyring_Service_Eventbrite {
 	 */
 	private function define_endpoints() {
 		$token = self::$instance->get_token();
+
 		if ( empty( $token ) )
 			return;
 
 		$this->set_endpoint( 'user_owned_events', self::API_BASE . 'users/' . $this->eventbrite_external_id . '/owned_events', 'GET' );
 		$this->set_endpoint( 'event_details', self::API_BASE . 'events/', 'GET' );
 		$this->set_endpoint( 'event_search', self::API_BASE . 'events/search/', 'GET' );
+
+		$this->set_endpoint( 'create_event', self::API_BASE . 'events/', 'POST' );
+		$this->set_endpoint( 'update_event', self::API_BASE . 'events/', 'POST' );
 	}
 
 	/**
@@ -100,7 +104,7 @@ class Eventbrite_API extends Keyring_Service_Eventbrite {
 		} else {
 			return new WP_Error( '500', 'Method ' . $method . ' is not implemented in the Eventbrite API.' );
 		}
-		
+
 		$response = self::$instance->request( $endpoint_url, $params );
 
 		return apply_filters( 'eventbrite_api_call_response', $response, $endpoint, $query_params, $object_id );
