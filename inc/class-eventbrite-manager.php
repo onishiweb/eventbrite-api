@@ -229,7 +229,7 @@ class Eventbrite_Manager {
 	 * @return mixed Transient if found, false if not.
 	 */
 	protected function get_cache( $endpoint, $params ) {
-		return get_transient( $this->get_transient_name( $endpoint, $params ) ); 
+		return get_transient( $this->get_transient_name( $endpoint, $params ) );
 	}
 
 	/**

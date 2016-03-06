@@ -93,11 +93,16 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		if( ! post_type_exists( $args['tickets'] ) ) {
 			eventbrite_tickets()->register_post_type($args['tickets'], $post_type);
+		} else {
+			eventbrite_tickets()->setup_post_type($args['tickets']);
 		}
 
 		if( ! post_type_exists( $args['venues'] ) ) {
 			eventbrite_venues()->register_post_type($args['venues'], $post_type);
+		} else {
+			eventbrite_venues()->setup_post_type($args['venues']);
 		}
+
 	}
 
 	/**
@@ -400,7 +405,7 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		$event['event.end.utc']          = gmdate('Y-m-d\TH:i:s\Z', strtotime($end_time));
 		$event['event.end.timezone']     = 'Europe/London';
 		$event['event.currency']         = 'GBP'; // get_post_meta($post_id, '', true);
-		// $event['event.venue_id']         = get_post_meta($post_id, '', true);
+		$event['event.venue_id']         = '13696417'; // get_post_meta($post_id, '', true);
 		$event['event.online_event']     = false; // get_post_meta($post_id, '', true);
 		$event['event.listed']           = true; // get_post_meta($post_id, '', true);
 		// $event['event.logo_id']          = get_post_meta($post_id, '', true);

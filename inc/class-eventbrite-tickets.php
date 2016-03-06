@@ -47,6 +47,10 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 		self::$instance = $this;
 	}
 
+	public function setup_post_type( $post_type ) {
+		$this->post_type = $post_type;
+	}
+
 	/**
 	 * Register a new post type for storing events
 	 *
@@ -61,7 +65,7 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 			'add_new_item'       => 'Add new ticket',
 			'edit_item'          => 'Edit ticket',
 			'new_item'           => 'New ticket',
-			'all_items'          => 'All tickets',
+			'all_items'          => 'Tickets',
 			'view_item'          => 'View tickets',
 			'search_items'       => 'Search tickets',
 			'not_found'          => 'No tickets found',
@@ -83,7 +87,8 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 				)
 			);
 
-		echo "TICKETS";
+		$this->post_type = $post_type;
+		$this->setup_acf_fields();
 	}
 
 	/**
@@ -177,30 +182,174 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 	protected function map_event_keys( $post_id ) {
 		$ticket = array();
 
-		$ticket['ticket_class.name']              = array();
-		$ticket['ticket_class.description']       = array();
-		$ticket['ticket_class.quantity_total']    = array();
-		$ticket['ticket_class.cost']              = array();
-		$ticket['ticket_class.donation']          = array();
-		$ticket['ticket_class.free']              = array();
-		$ticket['ticket_class.include_fee']       = array();
-		$ticket['ticket_class.split_fee']         = array();
-		$ticket['ticket_class.hide_description']  = array();
-		$ticket['ticket_class.sales_start']       = array();
-		$ticket['ticket_class.sales_end']         = array();
-		$ticket['ticket_class.sales_start_after'] = array();
-		$ticket['ticket_class.minimum_quantity']  = array();
-		$ticket['ticket_class.maximum_quantity']  = array();
-		$ticket['ticket_class.auto_hide']         = array();
-		$ticket['ticket_class.auto_hide_before']  = array();
-		$ticket['ticket_class.auto_hide_after']   = array();
-		$ticket['ticket_class.hidden']            = array();
+		// Change the value to an Int and change to pence value for Eventbrite
+		$cost = intval(get_field( 'ticket_cost', $post_id)) * 100;
+
+		$ticket['ticket_class.name']              = get_the_title($post_id);
+		$ticket['ticket_class.description']       = get_field( 'ticket_description', $post_id);
+		$ticket['ticket_class.quantity_total']    = array(); // Get from event
+		$ticket['ticket_class.cost']              = 'GBP,' . $cost;
+		$ticket['ticket_class.include_fee']       = get_field( 'ticket_fee', $post_id);
+		$ticket['ticket_class.sales_start']       = gmdate('Y-m-d\TH:i:s\Z', get_field( 'ticket_start', $post_id));
+		$ticket['ticket_class.sales_end']         = gmdate('Y-m-d\TH:i:s\Z', get_field( 'ticket_end', $post_id));
+		$ticket['ticket_class.minimum_quantity']  = 1;
+		$ticket['ticket_class.maximum_quantity']  = get_field( 'ticket_max_purchase', $post_id);
 
 		return $ticket;
+	}
+
+	protected function setup_acf_fields() {
+		if( function_exists('acf_add_local_field_group') ) {
+
+			acf_add_local_field_group(array (
+				'key' => 'group_56dc5b4bdca64',
+				'title' => 'Tickets',
+				'fields' => array (
+					array (
+						'key' => 'field_56dc5b6bcfdd6',
+						'label' => 'Description',
+						'name' => 'ticket_description',
+						'type' => 'wysiwyg',
+						'instructions' => '',
+						'required' => 0,
+						'conditional_logic' => 0,
+						'wrapper' => array (
+							'width' => '',
+							'class' => '',
+							'id' => '',
+						),
+						'default_value' => '',
+						'tabs' => 'all',
+						'toolbar' => 'basic',
+						'media_upload' => 0,
+					),
+					array (
+						'key' => 'field_56dc5b8acfdd7',
+						'label' => 'Cost',
+						'name' => 'ticket_cost',
+						'type' => 'text',
+						'instructions' => 'Ticket cost in GBP (£)',
+						'required' => 0,
+						'conditional_logic' => 0,
+						'wrapper' => array (
+							'width' => '',
+							'class' => '',
+							'id' => '',
+						),
+						'default_value' => 5,
+						'placeholder' => '',
+						'prepend' => '',
+						'append' => '',
+						'maxlength' => '',
+						'readonly' => 0,
+						'disabled' => 0,
+					),
+					array (
+						'key' => 'field_56dc5c68cfdd8',
+						'label' => 'Absorb fee',
+						'name' => 'ticket_fee',
+						'type' => 'true_false',
+						'instructions' => '',
+						'required' => 0,
+						'conditional_logic' => 0,
+						'wrapper' => array (
+							'width' => '',
+							'class' => '',
+							'id' => '',
+						),
+						'message' => '',
+						'default_value' => 1,
+					),
+					array (
+						'key' => 'field_56dc5c7fcfdd9',
+						'label' => 'Tickets on sale from',
+						'name' => 'ticket_start',
+						'type' => 'text',
+						'instructions' => 'In format (YYYY-MM-DD hh:mm). Leave empty for "when event published"',
+						'required' => 0,
+						'conditional_logic' => 0,
+						'wrapper' => array (
+							'width' => '',
+							'class' => '',
+							'id' => '',
+						),
+						'default_value' => '',
+						'placeholder' => '',
+						'prepend' => '',
+						'append' => '',
+						'maxlength' => '',
+						'readonly' => 0,
+						'disabled' => 0,
+					),
+					array (
+						'key' => 'field_56dc5d46cfdda',
+						'label' => 'Ticket sale ends',
+						'name' => 'ticket_end',
+						'type' => 'text',
+						'instructions' => 'In format (YYYY-MM-DD hh:mm). Leave empty for "one hour before event start"',
+						'required' => 0,
+						'conditional_logic' => 0,
+						'wrapper' => array (
+							'width' => '',
+							'class' => '',
+							'id' => '',
+						),
+						'default_value' => '',
+						'placeholder' => '',
+						'prepend' => '',
+						'append' => '',
+						'maxlength' => '',
+						'readonly' => 0,
+						'disabled' => 0,
+					),
+					array (
+						'key' => 'field_56dc5d71cfddb',
+						'label' => 'Maximum purchase',
+						'name' => 'ticket_max_purchase',
+						'type' => 'number',
+						'instructions' => 'Maximum number per order (blank for unlimited)',
+						'required' => 0,
+						'conditional_logic' => 0,
+						'wrapper' => array (
+							'width' => '',
+							'class' => '',
+							'id' => '',
+						),
+						'default_value' => '',
+						'placeholder' => '',
+						'prepend' => '',
+						'append' => '',
+						'min' => '',
+						'max' => '',
+						'step' => '',
+						'readonly' => 0,
+						'disabled' => 0,
+					),
+				),
+				'location' => array (
+					array (
+						array (
+							'param' => 'post_type',
+							'operator' => '==',
+							'value' => $this->post_type,
+						),
+					),
+				),
+				'menu_order' => 0,
+				'position' => 'acf_after_title',
+				'style' => 'default',
+				'label_placement' => 'top',
+				'instruction_placement' => 'field',
+				'hide_on_screen' => '',
+				'active' => 1,
+				'description' => '',
+			));
+		} else {
+			// Show error about ACF
+		}
 	}
 }
 
 function eventbrite_tickets() {
-	echo "eventbrite_tickets";
 	return Eventbrite_Tickets::$instance;
 }

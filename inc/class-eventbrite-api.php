@@ -71,6 +71,9 @@ class Eventbrite_API extends Keyring_Service_Eventbrite {
 
 		$this->set_endpoint( 'create_event', self::API_BASE . 'events/', 'POST' );
 		$this->set_endpoint( 'update_event', self::API_BASE . 'events/', 'POST' );
+
+		$this->set_endpoint( 'create_venue', self::API_BASE . 'venues/', 'POST' );
+		$this->set_endpoint( 'update_venue', self::API_BASE . 'venues/', 'POST' );
 	}
 
 	/**
