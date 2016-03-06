@@ -8,18 +8,35 @@
 class Eventbrite_Creator extends Eventbrite_Manager {
 
 	/**
+	 * Class instance used by themes and plugins.
+	 *
+	 * @var object
+	 */
+	public static $instance;
+
+	/**
 	 * Stores the post_type to use when creating events
 	 *
 	 * @var string
 	 */
 	protected $post_type;
 
+	protected $defaults = array(
+					'tickets' => 'eventbrite_tickets',
+					'venues'  => 'eventbrite_venues',
+					);
+
 	public function __construct() {
-		parent::__construct();
+		// Assign our instance.
+		self::$instance = $this;
 
 		// Add post meta actions
 		add_action( 'add_meta_boxes', array( $this, 'add_event_meta_boxes' ) );
 		add_action( 'save_post', array( $this, 'save_meta_data' ) );
+	}
+
+	public function get_defaults() {
+		return $this->defaults;
 	}
 
 	/**
@@ -65,23 +82,65 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	 * @param  string $post_type Name of the post type to be used for events
 	 * @return void
 	 */
-	public function setup_event_post_type( $post_type ) {
+	public function setup_event_post_type( $post_type, $args ) {
 		$this->post_type = $post_type;
+
+		new Eventbrite_Tickets;
+		new Eventbrite_Venues;
+
+		$defaults = $this->get_defaults();
+		$args = wp_parse_args( $args, $defaults );
+
+		if( ! post_type_exists( $args['tickets'] ) ) {
+			eventbrite_tickets()->register_post_type($args['tickets'], $post_type);
+		}
+
+		if( ! post_type_exists( $args['venues'] ) ) {
+			eventbrite_venues()->register_post_type($args['venues'], $post_type);
+		}
 	}
 
 	/**
-	 * Add an event events.
+	 * Add an event.
 	 *
 	 * @access public
 	 *
 	 * @param array $params Parameters to be passed during the API call.
-	 * @return ?
+	 * @return void
 	 */
-	public function do_event_create( $params = array() ) {
+	public function do_event_create( $post_id, $params = array() ) {
 		// Get the raw results.
 		$results = $this->request( 'create_event', $params, false, true );
 
-		return $results;
+		if( empty($result->errors) ) {
+			add_post_meta( $post_id, 'eventbrite_event_id', $result->id, true );
+			add_post_meta( $post_id, 'eventbrite_event_url', $result->url, true );
+
+			add_post_meta( $post_id, 'eventbrite_event_created', 'true', true );
+		} else {
+			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+		}
+	}
+
+	/**
+	 * Update an event.
+	 *
+	 * @access public
+	 *
+	 * @param array $params Parameters to be passed during the API call.
+	 * @return void
+	 */
+	public function do_event_update( $post_id, $params = array() ) {
+		$event_id = get_post_meta( $post_id, 'eventbrite_event_id', true );
+
+		// Get the raw results.
+		$results = $this->request( 'update_event', $params, $event_id, true );
+
+		if( empty($result->errors) ) {
+			add_post_meta( $post_id, 'eventbrite_event_updated', 'true', true );
+		} else {
+			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+		}
 	}
 
 	/**
@@ -110,12 +169,27 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		$fields = $this->get_event_post_fields();
 
+		// TODO: Make a better way of doing this.
+		if( get_post_meta($post->ID, 'eventbrite_event_created', true) ) {
+			echo 'Event created<br>';
+		} elseif( get_post_meta($post->ID, 'eventbrite_event_error', true) ) {
+			echo 'Error creating event<br>';
+		} elseif( get_post_meta($post->ID, 'eventbrite_event_updated', true) ) {
+			echo 'Event updated<br>';
+		} else {
+			echo 'No request made';
+		}
+
 		foreach( $fields as $field => $settings ) {
 			$field_name = str_replace(['.'], '_', $field);
 
 			$value = get_post_meta($post->ID, $field_name) ? get_post_meta($post->ID, $field_name, true) : '';
 			echo $this->build_field($field, $settings, $value);
 		}
+
+		delete_post_meta( $post->ID, 'eventbrite_event_created', 'true' );
+		delete_post_meta( $post->ID, 'eventbrite_event_error', '' );
+		delete_post_meta( $post->ID, 'eventbrite_event_updated', 'true' );
 	}
 
 	/**
@@ -157,6 +231,8 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 			$meta[$field_name] = ( isset( $_POST[$field_name] ) ? $_POST[$field_name] : '' );
 		}
 
+		$fields_updated = false;
+
 		// add/update record (both are taken care of by update_post_meta)
 		foreach( $meta as $key => $value ) {
 			// get current meta value
@@ -164,31 +240,25 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 			if ( $value && '' == $current_value ) {
 				add_post_meta( $post_id, $key, $value, true );
+				$fields_updated = true;
 			} elseif ( $value && $value != $current_value ) {
 				update_post_meta( $post_id, $key, $value );
+				$fields_updated = true;
 			} elseif ( '' == $value && $current_value ) {
 				delete_post_meta( $post_id, $key, $current_value );
+				$fields_updated = true;
 			}
 		}
 
-		// TODO: Check if there is already an event ID stored
-		// if so, update instead of add
-
-		if( get_post_meta( $post_id, 'eventbrite_event_id', true) ) {
-			delete_post_meta( $post_id, 'eventbrite_event_created', 'true' );
-			delete_post_meta( $post_id, 'eventbrite_event_error', '' );
-		} else {
-			// Create the event through the API
-			$result = $this->do_event_create( $this->map_event_keys($post_id) );
-		}
-
-		if( empty($result->errors) ) {
-			add_post_meta( $post_id, 'eventbrite_event_id', $result->id, true );
-			add_post_meta( $post_id, 'eventbrite_event_url', $result->url, true );
-
-			add_post_meta( $post_id, 'eventbrite_event_created', 'true', true );
-		} else {
-			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+		// TODO: Make a better way of doing this,
+		// needs to update when using ACF Fields and regular WP fields to.
+		if( $fields_updated ) {
+			if( get_post_meta( $post_id, 'eventbrite_event_id', true) ) {
+				$this->do_event_update( $post_id, $this->map_event_keys($post_id) );
+			} else {
+				// Create the event through the API
+				$this->do_event_create( $post_id, $this->map_event_keys($post_id) );
+			}
 		}
 	}
 
@@ -200,28 +270,31 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	 * @return array All valid request parameters for supported endpoints.
 	 */
 	protected function get_endpoint_params() {
+		$event_params = array(
+			'event.name.html' => array(),
+			'event.description.html' => array(),
+			'event.organizer_id' => array(),
+			'event.start.utc' => array(),
+			'event.start.timezone' => array(),
+			'event.end.utc' => array(),
+			'event.end.timezone' => array(),
+			'event.currency' => array(),
+			'event.venue_id' => array(),
+			'event.online_event' => array(),
+			'event.listed' => array(),
+			'event.logo_id' => array(),
+			'event.category_id' => array(),
+			'event.format_id' => array(),
+			'event.shareable' => array(),
+			'event.invite_only' => array(),
+			'event.password' => array(),
+			'event.capacity' => array(),
+			'event.show_remaining' => array(),
+		);
+
 		$params = array(
-			'create_event' => array(
-				'event.name.html' => array(),
-				'event.description.html' => array(),
-				'event.organizer_id' => array(),
-				'event.start.utc' => array(),
-				'event.start.timezone' => array(),
-				'event.end.utc' => array(),
-				'event.end.timezone' => array(),
-				'event.currency' => array(),
-				'event.venue_id' => array(),
-				'event.online_event' => array(),
-				'event.listed' => array(),
-				'event.logo_id' => array(),
-				'event.category_id' => array(),
-				'event.format_id' => array(),
-				'event.shareable' => array(),
-				'event.invite_only' => array(),
-				'event.password' => array(),
-				'event.capacity' => array(),
-				'event.show_remaining' => array(),
-			),
+			'create_event' => $event_params,
+			'update_event' => $event_params,
 		);
 
 		return $params;
@@ -340,25 +413,6 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		$event['event.show_remaining']   = true;
 
 		return $event;
-	}
-
-	protected function get_post_as_options($post_type) {
-		$venue_options = array();
-
-		$args = array(
-			'post_type' => $post_type,
-			'posts_per_page' => -1,
-			'post_status' => 'publish',
-		);
-
-		$venues = new WP_Query( $args );
-
-		foreach( $venues->posts as $venue ) {
-			$venue_options[] = array(
-				'value' => get_post_meta($venue['post_id'], 'eventbrite_venue_id', true),
-				'label' => $venue['post_title'],
-			);
-		}
 	}
 }
 

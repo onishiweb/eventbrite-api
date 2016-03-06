@@ -49,6 +49,8 @@ function eventbrite_api_init() {
 	if ( Eventbrite_Requirements::has_active_connection() ) {
 		require_once( 'inc/class-eventbrite-manager.php' );
 		require_once( 'inc/class-eventbrite-creator.php' );
+		require_once( 'inc/class-eventbrite-tickets.php' );
+		require_once( 'inc/class-eventbrite-venues.php' );
 		require_once( 'inc/class-eventbrite-query.php' );
 		require_once( 'inc/class-eventbrite-templates.php' );
 		require_once( 'inc/class-eventbrite-event.php' );

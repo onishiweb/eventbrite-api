@@ -456,21 +456,21 @@ function eventbrite_get_ticket_form_widget_height() {
 }
 endif;
 
-if( ! function_exists('eventbrite_event_post_type') ):
+if( ! function_exists('eventbrite_event_creator_init') ):
 /**
  * Allow the theme to specify which post_type should be used to store and create events
  * Also triggers that the theme would like to use the Eventbrite Creator
  *
  * @param  string $post_type Name of the post type to be set
  */
-function eventbrite_events_post_type( $post_type = 'event' ) {
-	new eventbrite_creator;
+function eventbrite_event_creator_init( $post_type = 'event', $args = array() ) {
+	new Eventbrite_Creator;
 
 	if( ! post_type_exists( $post_type ) ) {
 		eventbrite_creator()->register_post_type($post_type);
 	}
 
-	eventbrite_creator()->setup_event_post_type($post_type);
+	eventbrite_creator()->setup_event_post_type($post_type, $args);
 }
 
 endif;
