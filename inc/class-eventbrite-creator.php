@@ -70,6 +70,21 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	}
 
 	/**
+	 * Add an event events.
+	 *
+	 * @access public
+	 *
+	 * @param array $params Parameters to be passed during the API call.
+	 * @return ?
+	 */
+	public function do_event_create( $params = array() ) {
+		// Get the raw results.
+		$results = $this->request( 'create_event', $params, false, true );
+
+		return $results;
+	}
+
+	/**
 	 * Setup meta boxes for the events
 	 */
 	public function add_event_meta_boxes() {
@@ -155,6 +170,26 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 				delete_post_meta( $post_id, $key, $current_value );
 			}
 		}
+
+		// TODO: Check if there is already an event ID stored
+		// if so, update instead of add
+
+		if( get_post_meta( $post_id, 'eventbrite_event_id', true) ) {
+			delete_post_meta( $post_id, 'eventbrite_event_created', 'true' );
+			delete_post_meta( $post_id, 'eventbrite_event_error', '' );
+		} else {
+			// Create the event through the API
+			$result = $this->do_event_create( $this->map_event_keys($post_id) );
+		}
+
+		if( empty($result->errors) ) {
+			add_post_meta( $post_id, 'eventbrite_event_id', $result->id, true );
+			add_post_meta( $post_id, 'eventbrite_event_url', $result->url, true );
+
+			add_post_meta( $post_id, 'eventbrite_event_created', 'true', true );
+		} else {
+			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+		}
 	}
 
 	/**
@@ -166,25 +201,27 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 	 */
 	protected function get_endpoint_params() {
 		$params = array(
-			'name.html' => array(),
-			'description.html' => array(),
-			'organizer_id' => array(),
-			'start.utc' => array(),
-			'start.timezone' => array(),
-			'end.utc' => array(),
-			'end.timezone' => array(),
-			'currency' => array(),
-			'venue_id' => array(),
-			'online_event' => array(),
-			'listed' => array(),
-			'logo_id' => array(),
-			'category_id' => array(),
-			'format_id' => array(),
-			'shareable' => array(),
-			'invite_only' => array(),
-			'password' => array(),
-			'capacity' => array(),
-			'show_remaining' => array(),
+			'create_event' => array(
+				'event.name.html' => array(),
+				'event.description.html' => array(),
+				'event.organizer_id' => array(),
+				'event.start.utc' => array(),
+				'event.start.timezone' => array(),
+				'event.end.utc' => array(),
+				'event.end.timezone' => array(),
+				'event.currency' => array(),
+				'event.venue_id' => array(),
+				'event.online_event' => array(),
+				'event.listed' => array(),
+				'event.logo_id' => array(),
+				'event.category_id' => array(),
+				'event.format_id' => array(),
+				'event.shareable' => array(),
+				'event.invite_only' => array(),
+				'event.password' => array(),
+				'event.capacity' => array(),
+				'event.show_remaining' => array(),
+			),
 		);
 
 		return $params;
@@ -264,6 +301,45 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		);
 
 		return $fields;
+	}
+
+	/**
+	 * Convert the post properties into properties used by the Eventbrite API.
+	 *
+	 * @access protected
+	 *
+	 * @param object $api_event A single event from the API results.
+	 * @return object Event with Eventbrite_Event keys.
+	 */
+	protected function map_event_keys( $post_id ) {
+		$event = array();
+
+		$event['event.name.html']        = get_the_title($post_id);
+		$event['event.description.html'] = get_post_meta($post_id, 'description_html', true);
+		// $event['event.organizer_id']     = get_post_meta($post_id, '', true);
+
+		$start_time = get_post_meta($post_id, 'start_utc_date', true) . ' ' . get_post_meta($post_id, 'start_utc_time', true);
+		$event['event.start.utc']        = gmdate('Y-m-d\TH:i:s\Z', strtotime($start_time));
+
+		$event['event.start.timezone']   = 'Europe/London';
+
+		$end_time = get_post_meta($post_id, 'end_utc_date', true) . ' ' . get_post_meta($post_id, 'end_utc_time', true);
+		$event['event.end.utc']          = gmdate('Y-m-d\TH:i:s\Z', strtotime($end_time));
+		$event['event.end.timezone']     = 'Europe/London';
+		$event['event.currency']         = 'GBP'; // get_post_meta($post_id, '', true);
+		// $event['event.venue_id']         = get_post_meta($post_id, '', true);
+		$event['event.online_event']     = false; // get_post_meta($post_id, '', true);
+		$event['event.listed']           = true; // get_post_meta($post_id, '', true);
+		// $event['event.logo_id']          = get_post_meta($post_id, '', true);
+		// $event['event.category_id']      = get_post_meta($post_id, '', true);
+		// $event['event.format_id']        = get_post_meta($post_id, '', true);
+		$event['event.shareable']        = true; // get_post_meta($post_id, '', true);
+		// $event['event.invite_only']      = get_post_meta($post_id, '', true);
+		// $event['event.password']         = get_post_meta($post_id, '', true);
+		$event['event.capacity']         = get_post_meta($post_id, 'capacity', true);
+		$event['event.show_remaining']   = true;
+
+		return $event;
 	}
 
 	protected function get_post_as_options($post_type) {
