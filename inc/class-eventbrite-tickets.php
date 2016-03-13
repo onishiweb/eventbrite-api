@@ -99,18 +99,19 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 	 * @param array $params Parameters to be passed during the API call.
 	 * @return void
 	 */
-	public function do_tickets_create( $post_id, $params = array() ) {
+	public function do_tickets_create($ticket_id, $quantity, $event_id) {
+		$params = eventbrite_tickets()->map_ticket_keys($ticket_id, $quantity);
+
 		// Get the raw results.
-		// $results = $this->request( 'create_event', $params, false, true );
+		$result = eventbrite_tickets()->request( 'create_ticket', $params, $event_id, true, 'ticket_classes/' );
 
-		// if( empty($result->errors) ) {
-		// 	add_post_meta( $post_id, 'eventbrite_event_id', $result->id, true );
-		// 	add_post_meta( $post_id, 'eventbrite_event_url', $result->url, true );
+		if( empty($result->errors) ) {
+			add_post_meta( $ticket_id, 'eventbrite_ticket_id', $result->id, true );
+		} else {
+			add_post_meta( $event_id, 'eventbrite_event_error', '', true );
+		}
 
-		// 	add_post_meta( $post_id, 'eventbrite_event_created', 'true', true );
-		// } else {
-		// 	add_post_meta( $post_id, 'eventbrite_event_error', '', true );
-		// }
+		return $result;
 	}
 
 	/**
@@ -179,7 +180,7 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 	 * @param object $api_event A single event from the API results.
 	 * @return object Event with Eventbrite_Event keys.
 	 */
-	protected function map_event_keys( $post_id ) {
+	protected function map_ticket_keys( $post_id, $quantity ) {
 		$ticket = array();
 
 		// Change the value to an Int and change to pence value for Eventbrite
@@ -187,13 +188,23 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 
 		$ticket['ticket_class.name']              = get_the_title($post_id);
 		$ticket['ticket_class.description']       = get_field( 'ticket_description', $post_id);
-		$ticket['ticket_class.quantity_total']    = array(); // Get from event
+		$ticket['ticket_class.quantity_total']    = $quantity;
 		$ticket['ticket_class.cost']              = 'GBP,' . $cost;
 		$ticket['ticket_class.include_fee']       = get_field( 'ticket_fee', $post_id);
-		$ticket['ticket_class.sales_start']       = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'ticket_start', $post_id) ) );
-		$ticket['ticket_class.sales_end']         = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'ticket_end', $post_id) ) );
 		$ticket['ticket_class.minimum_quantity']  = 1;
 		$ticket['ticket_class.maximum_quantity']  = get_field( 'ticket_max_purchase', $post_id);
+
+		if( get_field( 'ticket_start', $post_id) ) {
+			$ticket['ticket_class.sales_start']   = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'ticket_start', $post_id) ) );
+		} else {
+			$ticket['ticket_class.sales_start']   = '';
+		}
+
+		if( get_field( 'ticket_start', $post_id) ) {
+			$ticket['ticket_class.sales_end']     = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'ticket_end', $post_id) ) );
+		} else {
+			$ticket['ticket_class.sales_end']     = '';
+		}
 
 		return $ticket;
 	}

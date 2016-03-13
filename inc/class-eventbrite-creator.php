@@ -129,6 +129,9 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		if( empty($result->errors) ) {
 			add_post_meta( $post_id, 'eventbrite_event_id', $result->id, true );
 			add_post_meta( $post_id, 'eventbrite_event_url', $result->url, true );
+
+			// If the event has been created successfully, now create the tickets
+			eventbrite_creator()->add_tickets($post_id, $result->id);
 		} else {
 			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
 		}
@@ -166,6 +169,26 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		wp_safe_redirect( $redirect_to );
 		exit();
+	}
+
+	public function add_tickets($post_id, $event_id) {
+		$rows = get_field('event_tickets', $post_id);
+		$results = array();
+
+		if($rows) {
+			foreach($rows as $row) {
+				$results[] = eventbrite_tickets()->do_tickets_create($row['event_ticket_type'], $row['event_ticket_quantity'], $event_id);
+			}
+		}
+
+		foreach( $results as $result ) {
+			if( empty($result->errors) ) {
+				// Handle success notification
+			} else {
+				// Handle error notification
+			}
+		}
+
 	}
 
 	public function display_admin_notice() {

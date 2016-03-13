@@ -122,6 +122,11 @@ class Eventbrite_Venues extends Eventbrite_Creator {
 		global $post;
 		$post_type = get_post_type_object( $post->post_type );
 
+		// Make sure we're saving the correct post type.
+		if( $this->post_type !== $post->post_type ) {
+			return $post_id;
+		}
+
 		// Check if the current user has permission to edit the post.
 		if ( ! current_user_can( $post_type->cap->edit_post, $post_id ) ) {
 			return $post_id;

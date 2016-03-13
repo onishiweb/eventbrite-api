@@ -35,9 +35,10 @@ class Eventbrite_Manager {
 	 * @param array $params Parameters passed to the API during a call.
 	 * @param int|string|bool $id A specific event ID used for calls to the event_details endpoint.
 	 * @param bool $force Force a fresh API call, ignoring any existing transient.
+	 * @param string|bool $action An addition to the endpoint to specify an action on the current object ($id)
 	 * @return object Request results
 	 */
-	public function request( $endpoint, $params = array(), $id = false, $force = false ) {
+	public function request( $endpoint, $params = array(), $id = false, $force = false, $action = false ) {
 		// Make sure the endpoint and parameters are valid.
 		if ( ! $this->validate_endpoint_params( $endpoint, $params ) ) {
 			return false;
@@ -62,7 +63,7 @@ class Eventbrite_Manager {
 		add_filter( 'http_request_timeout', array( $this, 'increase_timeout' ) );
 
 		// Make a fresh request.
-		$request = Eventbrite_API::call( $endpoint, $params, $id );
+		$request = Eventbrite_API::call( $endpoint, $params, $id, $action );
 
 		// Remove the timeout extension for any non-Eventbrite calls.
 		remove_filter( 'http_request_timeout', array( $this, 'increase_timeout' ) );

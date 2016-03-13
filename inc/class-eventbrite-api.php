@@ -72,6 +72,9 @@ class Eventbrite_API extends Keyring_Service_Eventbrite {
 		$this->set_endpoint( 'create_event', self::API_BASE . 'events/', 'POST' );
 		$this->set_endpoint( 'update_event', self::API_BASE . 'events/', 'POST' );
 
+		$this->set_endpoint( 'create_ticket', self::API_BASE . 'events/', 'POST' );
+		$this->set_endpoint( 'update_ticket', self::API_BASE . 'events/', 'POST' );
+
 		$this->set_endpoint( 'create_venue', self::API_BASE . 'venues/', 'POST' );
 		$this->set_endpoint( 'update_venue', self::API_BASE . 'venues/', 'POST' );
 	}
@@ -84,9 +87,11 @@ class Eventbrite_API extends Keyring_Service_Eventbrite {
 	 * @param  string $endpoint API endpoint supported by the plugin.
 	 * @param  array $query_params Parameters to be passed with the API call.
 	 * @param  integer $object_id Eventbrite event ID used when requesting a single event from the API.
+	 * @param  string $object_action Addition to the API endpoint to perform an action on the object
+	 *
 	 * @return object API response if successful, error (Keyring_Error or WP_Error) otherwise
 	 */
-	public static function call( $endpoint, $query_params = array(), $object_id = null ) {
+	public static function call( $endpoint, $query_params = array(), $object_id = null, $object_action = null ) {
 		$token = self::$instance->get_token();
 		if ( empty( $token ) )
 			return new Keyring_Error( '400', 'No token present for the Eventbrite API.' );
@@ -98,6 +103,10 @@ class Eventbrite_API extends Keyring_Service_Eventbrite {
 
 		if ( ! empty( $object_id ) && is_numeric( $object_id ) ) {
 			$endpoint_url = trailingslashit( $endpoint_url . absint( $object_id ) );
+		}
+
+		if( ! empty( $object_action ) ) {
+			$endpoint_url = trailingslashit( $endpoint_url . $object_action );
 		}
 
 		if ( 'GET' == $method ) {
