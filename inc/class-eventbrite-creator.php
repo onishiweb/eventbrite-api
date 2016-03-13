@@ -33,7 +33,7 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		// Add post meta actions
 		add_action( 'add_meta_boxes', array( $this, 'add_event_meta_boxes' ) );
 
-		add_action( 'admin_notices', array( $this, 'display_admin_notice' ) );
+		add_action( 'admin_notices', array( $this, 'display_eventbrite_admin_notices' ) );
 
 		// Eventbrite create action
 	    add_action( 'admin_post_eventbrite_create_event', array( 'Eventbrite_Creator', 'do_event_create'), 1 );
@@ -135,11 +135,15 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 			// If the event has been created successfully, now create the tickets
 			eventbrite_creator()->add_tickets($post_id, $result->id);
+
+			$notice = 'Event created on Eventbrite';
+			$notice_type = 'notice-success';
 		} else {
-			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+			$notice = 'Error creating event on Eventbrite';
+			$notice_type = 'notice-error';
 		}
 
-		$redirect_to = get_edit_post_link( $post_id, '' );
+		$redirect_to = add_query_arg( array( 'notice' => $notice, 'notice_type' => $notice_type ), get_edit_post_link( $post_id, '' ) );
 
 		wp_safe_redirect( $redirect_to );
 		exit();
@@ -166,11 +170,15 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 			//
 			// If the event has been updated successfully, now create the tickets
 			eventbrite_creator()->add_tickets($post_id, $result->id);
+
+			$notice = 'Event updated on Eventbrite';
+			$notice_type = 'notice-success';
 		} else {
-			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+			$notice = 'Error updating event on Eventbrite';
+			$notice_type = 'notice-error';
 		}
 
-		$redirect_to = get_edit_post_link( $post_id, '' );
+		$redirect_to = add_query_arg( array( 'notice' => $notice, 'notice_type' => $notice_type ), get_edit_post_link( $post_id, '' ) );
 
 		wp_safe_redirect( $redirect_to );
 		exit();
@@ -193,14 +201,15 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		if( $results && empty($result->errors) ) {
 			// Event published
-			add_post_meta( $post_id, 'eventbrite_event_status', 'published', true );
+			update_post_meta( $post_id, 'eventbrite_event_status', 'published', 'unpublished' );
+			$notice = 'Event published on eventbrite';
+			$notice_type = 'notice-success';
 		} else {
-			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
-			print_r($result);
-			die();
+			$notice = 'Error publishing event';
+			$notice_type = 'notice-error';
 		}
 
-		$redirect_to = get_edit_post_link( $post_id, '' );
+		$redirect_to = add_query_arg( array( 'notice' => urlencode( $notice ), 'notice_type' => $notice_type ), get_edit_post_link( $post_id, '' ) );
 
 		wp_safe_redirect( $redirect_to );
 		exit();
@@ -223,14 +232,15 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		if( empty($result->errors) ) {
 			// Event published
-			add_post_meta( $post_id, 'eventbrite_event_status', 'published', true );
+			update_post_meta( $post_id, 'eventbrite_event_status', 'unpublished', 'published' );
+			$notice = 'Event has been unpublished';
+			$notice_type = 'notice-success';
 		} else {
-			print_r($result);
-			die();
-			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+			$notice = 'Error unpublishing event';
+			$notice_type = 'notice-error';
 		}
 
-		$redirect_to = get_edit_post_link( $post_id, '' );
+		$redirect_to = add_query_arg( array( 'notice' => urlencode( $notice ), 'notice_type' => $notice_type ), get_edit_post_link( $post_id, '' ) );
 
 		wp_safe_redirect( $redirect_to );
 		exit();
@@ -255,14 +265,12 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		}
 	}
 
-	public function display_admin_notice() {
+	public function display_eventbrite_admin_notices() {
 
-		return;
-
-		$notice = 'Eventbrite event created';
-
-		// Output notice HTML.
-		printf( '<div id="message" class="updated"><p>%s</p></div>', $notice );
+		if( isset( $_GET['notice'] ) ) {
+			// Output notice HTML.
+			printf( '<div id="message" class="notice is-dismissible %s"><p>%s</p></div>', $_GET['notice_type'], $_GET['notice'] );
+		}
 	}
 
 	/**
@@ -292,7 +300,7 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		$action = 'eventbrite_create_event';
 		$evenbrite_id_data = '';
 
-		$evenbrite_id = get_post_meta( $post->ID, 'eventbrite_event_id', true);
+		$eventbrite_id = get_post_meta( $post->ID, 'eventbrite_event_id', true );
 
 		if( $eventbrite_id ) {
 			$submit_value = 'Update Eventbrite Event';
@@ -310,11 +318,11 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		<?php
 
-		if( ! $evenbrite_id ) {
+		if( ! $eventbrite_id ) {
 			return;
 		}
 
-		$status = get_post_meta( $post_id, 'eventbrite_event_status', true );
+		$status = get_post_meta( $post->ID, 'eventbrite_event_status', true );
 
 		if( 'published' === $status ) {
 			$publish_action = 'eventbrite_unpublish_event';
@@ -416,8 +424,6 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		return $event;
 	}
 }
-
-new Eventbrite_Creator;
 
 function eventbrite_creator() {
 	return Eventbrite_Creator::$instance;
