@@ -40,7 +40,7 @@ class Eventbrite_Manager {
 	 */
 	public function request( $endpoint, $params = array(), $id = false, $force = false, $action = false ) {
 		// Make sure the endpoint and parameters are valid.
-		if ( ! $this->validate_endpoint_params( $endpoint, $params ) ) {
+		if ( ! empty($params) && ! $this->validate_endpoint_params( $endpoint, $params ) ) {
 			return false;
 		}
 

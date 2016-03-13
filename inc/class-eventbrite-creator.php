@@ -38,6 +38,8 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		// Eventbrite create action
 	    add_action( 'admin_post_eventbrite_create_event', array( 'Eventbrite_Creator', 'do_event_create'), 1 );
 	    add_action( 'admin_post_eventbrite_update_event', array( 'Eventbrite_Creator', 'do_event_update'), 1 );
+	    add_action( 'admin_post_eventbrite_publish_event', array( 'Eventbrite_Creator', 'do_event_publish'), 1 );
+	    add_action( 'admin_post_eventbrite_unpublish_event', array( 'Eventbrite_Creator', 'do_event_unpublish'), 1 );
 	}
 
 	public function get_defaults() {
@@ -128,6 +130,7 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 
 		if( empty($result->errors) ) {
 			add_post_meta( $post_id, 'eventbrite_event_id', $result->id, true );
+			add_post_meta( $post_id, 'eventbrite_event_status', 'unpublished', true );
 			add_post_meta( $post_id, 'eventbrite_event_url', $result->url, true );
 
 			// If the event has been created successfully, now create the tickets
@@ -160,8 +163,70 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		$results = eventbrite_creator()->request( 'update_event', $params, $event_id, true );
 
 		if( empty($result->errors) ) {
-
+			//
+			// If the event has been updated successfully, now create the tickets
+			eventbrite_creator()->add_tickets($post_id, $result->id);
 		} else {
+			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+		}
+
+		$redirect_to = get_edit_post_link( $post_id, '' );
+
+		wp_safe_redirect( $redirect_to );
+		exit();
+	}
+
+	/**
+	 * Publish an event.
+	 *
+	 * @access public
+	 *
+	 * @param array $params Parameters to be passed during the API call.
+	 * @return void
+	 */
+	public function do_event_publish() {
+		$post_id = $_GET['post_id'];
+		$event_id = $_GET['eventbrite_id'];
+
+		// Get the raw results.
+		$results = eventbrite_creator()->request( 'publish_event', false, $event_id, true, 'publish' );
+
+		if( $results && empty($result->errors) ) {
+			// Event published
+			add_post_meta( $post_id, 'eventbrite_event_status', 'published', true );
+		} else {
+			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+			print_r($result);
+			die();
+		}
+
+		$redirect_to = get_edit_post_link( $post_id, '' );
+
+		wp_safe_redirect( $redirect_to );
+		exit();
+	}
+
+	/**
+	 * Unpublish an event.
+	 *
+	 * @access public
+	 *
+	 * @param array $params Parameters to be passed during the API call.
+	 * @return void
+	 */
+	public function do_event_unpublish() {
+		$post_id = $_GET['post_id'];
+		$event_id = $_GET['eventbrite_id'];
+
+		// Get the raw results.
+		$results = eventbrite_creator()->request( 'publish_event', false, $event_id, true, 'unpublish' );
+
+		if( empty($result->errors) ) {
+			// Event published
+			add_post_meta( $post_id, 'eventbrite_event_status', 'published', true );
+		} else {
+			print_r($result);
+			die();
 			add_post_meta( $post_id, 'eventbrite_event_error', '', true );
 		}
 
@@ -188,7 +253,6 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 				// Handle error notification
 			}
 		}
-
 	}
 
 	public function display_admin_notice() {
@@ -228,7 +292,9 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		$action = 'eventbrite_create_event';
 		$evenbrite_id_data = '';
 
-		if( $evenbrite_id = get_post_meta( $post->ID, 'eventbrite_event_id', true) ) {
+		$evenbrite_id = get_post_meta( $post->ID, 'eventbrite_event_id', true);
+
+		if( $eventbrite_id ) {
 			$submit_value = 'Update Eventbrite Event';
 			$action = 'eventbrite_update_event';
 		}
@@ -240,7 +306,32 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		), admin_url( 'admin-post.php' ) );
 		?>
 
-		<a href="<?php echo $url; ?>" class="button button-primary button-large"><?php echo $submit_value; ?></a>
+		<p><a href="<?php echo $url; ?>" class="button button-primary button-large"><?php echo $submit_value; ?></a></p>
+
+		<?php
+
+		if( ! $evenbrite_id ) {
+			return;
+		}
+
+		$status = get_post_meta( $post_id, 'eventbrite_event_status', true );
+
+		if( 'published' === $status ) {
+			$publish_action = 'eventbrite_unpublish_event';
+			$publish_submit = 'Unpublish event';
+		} else {
+			$publish_action = 'eventbrite_publish_event';
+			$publish_submit = 'Publish event';
+		}
+
+		$publish_url = add_query_arg( array(
+		    'action'        => $publish_action,
+		    'post_id'       => $post->ID,
+		    'eventbrite_id' => get_post_meta( $post->ID, 'eventbrite_event_id', true),
+		), admin_url( 'admin-post.php' ) );
+
+		?>
+		<p><a href="<?php echo $publish_url; ?>" class="button button-secondary"><?php echo $publish_submit; ?></a></p>
 
 		<?php
 	}

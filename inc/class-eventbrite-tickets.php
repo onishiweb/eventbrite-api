@@ -122,17 +122,19 @@ class Eventbrite_Tickets extends Eventbrite_Creator {
 	 * @param array $params Parameters to be passed during the API call.
 	 * @return void
 	 */
-	public function do_tickets_update( $post_id, $params = array() ) {
-		// $event_id = get_post_meta( $post_id, 'eventbrite_event_id', true );
+	public function do_tickets_update( $ticket_id, $event_id ) {
+		// $params = eventbrite_tickets()->map_ticket_keys($ticket_id, get_post_meta($event_id, 'eventbrite_quantity'));
 
 		// // Get the raw results.
-		// $results = $this->request( 'update_event', $params, $event_id, true );
+		// $result = eventbrite_tickets()->request( 'create_ticket', $params, $event_id, true, 'ticket_classes/' );
 
 		// if( empty($result->errors) ) {
-		// 	add_post_meta( $post_id, 'eventbrite_event_updated', 'true', true );
+		// 	add_post_meta( $ticket_id, 'eventbrite_ticket_id', $result->id, true );
 		// } else {
-		// 	add_post_meta( $post_id, 'eventbrite_event_error', '', true );
+		// 	add_post_meta( $event_id, 'eventbrite_event_error', '', true );
 		// }
+
+		// return $result;
 	}
 
 	/**

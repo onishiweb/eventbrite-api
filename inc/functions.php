@@ -395,17 +395,21 @@ if ( ! function_exists( 'eventbrite_ticket_form_widget' ) ) :
 /**
  * Insert the Eventbrite ticket form widget.
  */
-function eventbrite_ticket_form_widget() {
+function eventbrite_ticket_form_widget( $event_id = false ) {
+	if( ! $event_id ) {
+		$event_id = get_the_ID();
+	}
+
 	// Build the src attribute URL.
 	$src = add_query_arg( array(
-			'eid' => get_the_ID(),
+			'eid' => $event_id,
 			'ref' => 'etckt',
 	), '//eventbrite.com/tickets-external' );
 
 	// Assemble our ticket info HTML.
 	$ticket_html = sprintf( '<div class="eventbrite-widget"><iframe src="%1$s" height="%2$s" width="100%%" frameborder="0" vspace="0" hspace="0" marginheight="5" marginwidth="5" scrolling="auto" allowtransparency="true"></iframe></div>',
 		esc_url( $src ),
-		esc_attr( eventbrite_get_ticket_form_widget_height() )
+		esc_attr( eventbrite_creator_get_ticket_form_widget_height( get_the_id() ) )
 	);
 
 	// Output the markup.
@@ -445,6 +449,48 @@ function eventbrite_get_ticket_form_widget_height() {
 		if ( ( ! isset( $ticket->sales_end ) || time() < mysql2date( 'U', $ticket->sales_end ) ) && ( ! isset( $ticket->hidden ) || true != $ticket->hidden ) ) {
 			$sales_open = true;
 		}
+	}
+
+	// Remove call-to-action spacing if no tickets are still on sale.
+	if ( ! isset( $sales_open ) ) {
+		$height -= 74;
+	}
+
+	return (int) apply_filters( 'eventbrite_ticket_form_widget_height', $height );
+}
+endif;
+
+if ( ! function_exists( 'eventbrite_creator_get_ticket_form_widget_height' ) ) :
+/**
+ * Calculate the height of the ticket form widget iframe. Not perfect, but avoids having to do it with JS.
+ *
+ * @return  int Height of iframe
+ */
+function eventbrite_creator_get_ticket_form_widget_height( $event_id ) {
+	// Set the minimum height (essentially iframe chrome).
+	$height = 100;
+
+	// Get tickets for the current event.
+	$tickets = get_field('event_tickets', $event_id);
+	// Move along if the event has no ticket information.
+	if ( ! $tickets ) {
+		return $height + 45;
+	}
+
+	// Add height for various ticket table elements.
+	$height += 123;
+
+	// Check each ticket.
+	foreach ( $tickets as $ticket ) {
+		// Add height for each visible ticket type.
+		// if ( ! isset( $ticket->hidden ) || true != $ticket->hidden ) {
+			$height += 45;
+		// }
+
+		// Check if any visible sales are still open.
+		// if ( ( ! isset( $ticket->sales_end ) || time() < mysql2date( 'U', $ticket->sales_end ) ) && ( ! isset( $ticket->hidden ) || true != $ticket->hidden ) ) {
+			$sales_open = true;
+		// }
 	}
 
 	// Remove call-to-action spacing if no tickets are still on sale.
