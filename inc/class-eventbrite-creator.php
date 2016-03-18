@@ -399,27 +399,25 @@ class Eventbrite_Creator extends Eventbrite_Manager {
 		$event['event.start.timezone']   = 'Europe/London';
 		$event['event.end.utc']          = gmdate('Y-m-d\TH:i:s\Z', strtotime( get_field( 'event_end_time', $post_id) ) );
 		$event['event.end.timezone']     = 'Europe/London';
-		$event['event.currency']         = 'GBP';
+
 		$event['event.online_event']     = false;
-		$event['event.listed']           = true;
-		$event['event.shareable']        = true;
-		$event['event.show_remaining']   = true;
+
+		$event['event.currency']         = get_field('eventbrite_currency', 'option');
+		$event['event.listed']           = get_field('eventbrite_listed', 'option');
+		$event['event.shareable']        = get_field('eventbrite_shareable', 'option');
+		$event['event.show_remaining']   = get_field('eventbrite_show_remaining', 'option');
 
 		$venue_id = get_field( 'event_venue', $post_id );
 		$event['event.venue_id']         = get_field( 'eventbrite_venue_id', $venue_id ); //'13696417';
 
 		// Fields not yet being used:
 		//
-		// $event['event.organizer_id']     = get_post_meta($post_id, '', true);
-		// $event['event.logo_id']          = get_post_meta($post_id, '', true);
-		// $event['event.category_id']      = get_post_meta($post_id, '', true);
-		// $event['event.format_id']        = get_post_meta($post_id, '', true);
-		// $event['event.invite_only']      = get_post_meta($post_id, '', true);
-		// $event['event.password']         = get_post_meta($post_id, '', true);
-		// $start_time = get_post_meta($post_id, 'start_utc_date', true) . ' ' . get_post_meta($post_id, 'start_utc_time', true);
-		// $event['event.start.utc']        = gmdate('Y-m-d\TH:i:s\Z', strtotime($start_time));
-		// $end_time = get_post_meta($post_id, 'end_utc_date', true) . ' ' . get_post_meta($post_id, 'end_utc_time', true);
-		// $event['event.end.utc']          = gmdate('Y-m-d\TH:i:s\Z', strtotime($end_time));
+		// $event['event.organizer_id']     = get_post_meta($post_id, '', true); (not sure how to get)
+		// $event['event.logo_id']          = get_post_meta($post_id, '', true); (not sure how to get)
+		// $event['event.category_id']      = get_post_meta($post_id, '', true); (endpoint for category list)
+		// $event['event.format_id']        = get_post_meta($post_id, '', true); (endpoint for formats)
+		// $event['event.invite_only']      = get_post_meta($post_id, '', true); WP never will be
+		// $event['event.password']         = get_post_meta($post_id, '', true); WP never will use
 
 		return $event;
 	}
